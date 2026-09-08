@@ -1,11 +1,24 @@
 import type { Request, Response } from 'express';
 import EmployeeModel from '../model/employee.js';
 import { HttpError } from '../errors/http-error.js';
+import type {
+  CreateEmployeeInput,
+  EmployeeIdParams,
+  UpdateEmployeeInput,
+} from '../validation/employee-schema.js';
+
+/**
+ * Request types carrying what validation guarantees. Because the schemas are
+ * the source of both the runtime check and these types, a field renamed in a
+ * schema breaks compilation here rather than failing silently at runtime.
+ */
+type BodyRequest<Body> = Request<Record<string, string>, unknown, Body>;
+type IdRequest<Body = unknown> = Request<EmployeeIdParams, unknown, Body>;
 
 /**
  * No try/catch anywhere below. Express 5 forwards a rejected promise from an
  * async handler straight to the error middleware, so anything that throws --
- * a bad ObjectId, a failed validation, a dropped database connection --
+ * a failed validation, a duplicate email, a dropped database connection --
  * lands in `errorHandler` and is translated there.
  *
  * Methods are arrow properties so `this` survives being passed to the router
@@ -20,7 +33,7 @@ class EmployeeController {
   };
 
   // Get employee by ID
-  getEmployeeById = async (request: Request, response: Response) => {
+  getEmployeeById = async (request: IdRequest, response: Response) => {
     const employee = await EmployeeModel.findById(request.params.id);
     if (!employee) throw new HttpError(404, 'Employee not found');
 
@@ -28,15 +41,16 @@ class EmployeeController {
   };
 
   // Create a new employee
-  createEmployee = async (request: Request, response: Response) => {
+  createEmployee = async (request: BodyRequest<CreateEmployeeInput>, response: Response) => {
     const savedEmployee = await new EmployeeModel(request.body).save();
     response.status(201).json({ data: savedEmployee, message: 'Employee created successfully' });
   };
 
   // Update an existing employee
-  updateEmployee = async (request: Request, response: Response) => {
-    // `runValidators` matters: without it Mongoose skips schema rules on
-    // update, so an existing record could be edited into an invalid state.
+  updateEmployee = async (request: IdRequest<UpdateEmployeeInput>, response: Response) => {
+    // `runValidators` keeps the schema honest on update, which Mongoose skips
+    // by default. It is redundant while every route validates first, and cheap
+    // insurance the day something writes through a path that does not.
     const updatedEmployee = await EmployeeModel.findByIdAndUpdate(
       request.params.id,
       request.body,
@@ -48,7 +62,7 @@ class EmployeeController {
   };
 
   // Delete an employee
-  deleteEmployee = async (request: Request, response: Response) => {
+  deleteEmployee = async (request: IdRequest, response: Response) => {
     const deletedEmployee = await EmployeeModel.findByIdAndDelete(request.params.id);
     if (!deletedEmployee) throw new HttpError(404, 'Employee not found');
 
