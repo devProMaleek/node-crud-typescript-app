@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from "mongoose";
 import router from './routes/index.js';
+import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -26,6 +27,14 @@ app.use(express.json());
 
 // Use the router for handling routes
 app.use('/api', router);
+
+// Anything that did not match a route above is a 404...
+app.use(notFoundHandler);
+
+// ...and the error handler goes dead last, so every throw from every route
+// above funnels into it. Registered any earlier, the routes it is meant to
+// protect would not yet exist.
+app.use(errorHandler);
 
 // Start the server
 app.listen(PORT, () => {
