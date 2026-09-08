@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import mongoose from 'mongoose';
+import { ZodError } from 'zod';
 import { HttpError } from '../errors/http-error.js';
 
 /** MongoDB signals a unique-index violation with this driver error code. */
@@ -54,8 +55,21 @@ export const errorHandler = (
     });
   }
 
-  // 2. The id in the URL was not a valid ObjectId. The client sent bad input,
-  //    so this is 400 -- not the 500 an unhandled throw would produce.
+  // 2. The request failed validation at the route boundary. Report every
+  //    problem at once, addressed to whoever wrote the request.
+  if (error instanceof ZodError) {
+    return response.status(400).json({
+      error: 'Validation failed',
+      details: error.issues.map((issue) => ({
+        field: issue.path.join('.') || '(body)',
+        message: issue.message,
+      })),
+    });
+  }
+
+  // 3. An ObjectId that reached Mongoose unchecked. Requests are validated
+  //    before the controller now, so this is a backstop for ids cast anywhere
+  //    else -- a field in a body, a query written by hand.
   if (error instanceof mongoose.Error.CastError) {
     return response.status(400).json({
       error: `Invalid value for '${error.path}'`,
@@ -63,7 +77,7 @@ export const errorHandler = (
     });
   }
 
-  // 3. The body failed schema validation. Report every bad field at once so
+  // 4. The body failed schema validation. Report every bad field at once so
   //    the client can fix them in one go rather than one request per mistake.
   if (error instanceof mongoose.Error.ValidationError) {
     return response.status(400).json({
@@ -72,7 +86,7 @@ export const errorHandler = (
     });
   }
 
-  // 4. A unique index rejected the write -- the resource already exists.
+  // 5. A unique index rejected the write -- the resource already exists.
   //    409 Conflict says "your request was well-formed but clashes with state".
   if (isDuplicateKeyError(error)) {
     const field = Object.keys(error.keyValue ?? {})[0] ?? 'field';
@@ -82,7 +96,7 @@ export const errorHandler = (
     });
   }
 
-  // 5. Thrown by Express itself before our code ran: malformed JSON body,
+  // 6. Thrown by Express itself before our code ran: malformed JSON body,
   //    payload too large, unsupported media type. These already know their
   //    status; we only repeat the message when `expose` says it is safe.
   if (isStatusCarryingError(error) && error.status >= 400 && error.status < 500) {
@@ -91,7 +105,7 @@ export const errorHandler = (
     });
   }
 
-  // 6. Genuinely unexpected. Log the real thing for us, return something
+  // 7. Genuinely unexpected. Log the real thing for us, return something
   //    generic to the client -- internal messages can leak schema or paths.
   console.error('Unhandled error:', error);
   return response.status(500).json({ error: 'Internal server error' });
