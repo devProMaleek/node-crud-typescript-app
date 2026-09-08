@@ -6,19 +6,25 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx --watch src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed": "tsx src/seed.ts",
+    "seed:fresh": "tsx src/seed.ts --fresh"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=24"
+  },
   "type": "module",
   "dependencies": {
     "express": "^5.2.1",
     "mongoose": "^9.9.5"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@types/express": "^5.0.6",
-    "@types/node": "^26.4.1",
+    "@types/node": "^24.13.3",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2"
   }
