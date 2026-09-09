@@ -17,10 +17,11 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP' });
 });
 
-// Validation runs as middleware, so a controller below never receives a
-// request that has not already been checked and coerced.
+// Employee routes
 router.get('/employees', EmployeeController.getAllEmployees);
 
+// Validation runs as middleware, so a controller below never receives a
+// request that has not already been checked and coerced.
 router.get(
   '/employees/:id',
   validate({ params: employeeIdParamsSchema }),
