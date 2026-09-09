@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express';
 import EmployeeModel from '../model/employee.js';
 import { HttpError } from '../errors/http-error.js';
-import type {
-  CreateEmployeeInput,
-  EmployeeIdParams,
-  UpdateEmployeeInput,
+import {
+  paginationSchema,
+  type CreateEmployeeInput,
+  type EmployeeIdParams,
+  type UpdateEmployeeInput,
 } from '../validation/employee-schema.js';
 
 /**
@@ -27,9 +28,29 @@ type IdRequest<Body = unknown> = Request<EmployeeIdParams, unknown, Body>;
  */
 class EmployeeController {
   // Get all employees
-  getAllEmployees = async (_request: Request, response: Response) => {
-    const employees = await EmployeeModel.find();
-    response.status(200).json({ data: employees, message: 'Employees retrieved successfully' });
+  getAllEmployees = async (request: Request, response: Response) => {
+    const { page, limit } = paginationSchema.parse(request.query);
+    const skip = (page - 1) * limit;
+
+    const [employees, totalEmployees] = await Promise.all([
+      EmployeeModel.find().sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit),
+      EmployeeModel.countDocuments(),
+    ]);
+
+    // Calculate metadata for pagination
+    const totalPages = Math.ceil(totalEmployees / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    const metadata = {
+      totalEmployees,
+      totalPages,
+      currentPage: page,
+      limit: limit,
+      hasNextPage,
+      hasPrevPage,
+    };
+    response.status(200).json({ data: employees, metadata, message: 'Employees retrieved successfully' });
   };
 
   // Get employee by ID

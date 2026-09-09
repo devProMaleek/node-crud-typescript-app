@@ -67,6 +67,12 @@ export const updateEmployeeSchema = z
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one field to update')
   .refine(joinedAfterBirth, JOIN_ORDER_ERROR);
 
+export const paginationSchema = z.strictObject({
+  page: z.coerce.number().int().positive('Page must be a positive integer').default(1),
+  limit: z.coerce.number().int().positive('Limit must be a positive integer').max(100, 'Limit cannot exceed 100').default(10),
+});
+
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type EmployeeIdParams = z.infer<typeof employeeIdParamsSchema>;
+export type PaginationInput = z.infer<typeof paginationSchema>;
